@@ -1,4 +1,4 @@
-﻿namespace Dierentuin.Models
+﻿namespace Zoo.Models
 {
     public class Category
     {

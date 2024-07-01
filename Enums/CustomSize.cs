@@ -1,4 +1,4 @@
-﻿namespace Dierentuin.Enums
+﻿namespace Zoo.Enums
 {
     public enum CustomSize
     {
