@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Zoo.Controllers;
 using Zoo.Data;
 using Zoo.Models;
+using Zoo.Enums;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,21 +14,10 @@ namespace TestProject1
 {
     public class AnimalsControllerTests
     {
-        private Mock<DbSet<Animals>> GetMockDbSet(List<Animals> data)
-        {
-            var queryableData = data.AsQueryable();
-            var mockDbSet = new Mock<DbSet<Animals>>();
-            mockDbSet.As<IQueryable<Animals>>().Setup(m => m.Provider).Returns(queryableData.Provider);
-            mockDbSet.As<IQueryable<Animals>>().Setup(m => m.Expression).Returns(queryableData.Expression);
-            mockDbSet.As<IQueryable<Animals>>().Setup(m => m.ElementType).Returns(queryableData.ElementType);
-            mockDbSet.As<IQueryable<Animals>>().Setup(m => m.GetEnumerator()).Returns(queryableData.GetEnumerator());
-            return mockDbSet;
-        }
-
         private ZooContext GetDbContext(List<Animals> data)
         {
             var options = new DbContextOptionsBuilder<ZooContext>()
-                .UseInMemoryDatabase(databaseName: "TestDatabase")
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Ensure a unique database for each test
                 .Options;
             var context = new ZooContext(options);
             context.Animals.AddRange(data);
@@ -39,12 +29,22 @@ namespace TestProject1
         public async Task Create_ReturnsARedirectAndAddsAnimal_WhenModelStateIsValid()
         {
             // Arrange
-            var mockContext = new Mock<ZooContext>();
-            var animals = new List<Animals>();
-            mockContext.Setup(m => m.Animals).Returns(GetMockDbSet(animals).Object);
-            var controller = new AnimalsController(mockContext.Object);
+            var context = GetDbContext(new List<Animals>());
+            var controller = new AnimalsController(context);
 
-            var animal = new Animals { Id = 1, Name = "Lion", Species = "Panthera leo", Size = CustomSize.Medium, DietaryClass = DietaryClass.Carnivore, ActivityPattern = ActivityPattern.Diurnal, EnclosureId = 1, SpaceRequirement = 500, SecurityRequirement = SecurityLevel.High };
+            var animal = new Animals
+            {
+                Id = 1,
+                Name = "Lion",
+                Species = "Panthera leo",
+                Size = CustomSize.Medium,
+                DietaryClass = DietaryClass.Carnivore,
+                ActivityPattern = ActivityPattern.Diurnal,
+                EnclosureId = 1,
+                SpaceRequirement = 500,
+                SecurityRequirement = SecurityLevel.High,
+                Prey = "Deer"
+            };
 
             // Act
             var result = await controller.Create(animal);
@@ -52,8 +52,7 @@ namespace TestProject1
             // Assert
             var redirectToActionResult = Assert.IsType<RedirectToActionResult>(result);
             Assert.Equal("Index", redirectToActionResult.ActionName);
-            mockContext.Verify(m => m.Add(It.IsAny<Animals>()), Times.Once);
-            mockContext.Verify(m => m.SaveChangesAsync(default), Times.Once);
+            Assert.Equal(1, context.Animals.Count());
         }
 
         [Fact]
@@ -61,13 +60,40 @@ namespace TestProject1
         {
             // Arrange
             var data = new List<Animals>
-        {
-            new Animals { Id = 1, Name = "Lion", Species = "Panthera leo", Size = CustomSize.Medium, DietaryClass = DietaryClass.Carnivore, ActivityPattern = ActivityPattern.Diurnal, EnclosureId = 1, SpaceRequirement = 500, SecurityRequirement = SecurityLevel.High }
-        };
+            {
+                new Animals
+                {
+                    Id = 1,
+                    Name = "Lion",
+                    Species = "Panthera leo",
+                    Size = CustomSize.Medium,
+                    DietaryClass = DietaryClass.Carnivore,
+                    ActivityPattern = ActivityPattern.Diurnal,
+                    EnclosureId = 1,
+                    SpaceRequirement = 500,
+                    SecurityRequirement = SecurityLevel.High,
+                    Prey = "Deer"
+                }
+            };
             var context = GetDbContext(data);
             var controller = new AnimalsController(context);
 
-            var animal = new Animals { Id = 1, Name = "Tiger", Species = "Panthera tigris", Size = CustomSize.Large, DietaryClass = DietaryClass.Carnivore, ActivityPattern = ActivityPattern.Nocturnal, EnclosureId = 1, SpaceRequirement = 600, SecurityRequirement = SecurityLevel.High };
+            var animal = new Animals
+            {
+                Id = 1,
+                Name = "Tiger",
+                Species = "Panthera tigris",
+                Size = CustomSize.Large,
+                DietaryClass = DietaryClass.Carnivore,
+                ActivityPattern = ActivityPattern.Nocturnal,
+                EnclosureId = 1,
+                SpaceRequirement = 600,
+                SecurityRequirement = SecurityLevel.High,
+                Prey = "Boar"
+            };
+
+            // Detach the original entity to avoid tracking conflicts
+            context.Entry(data.First()).State = EntityState.Detached;
 
             // Act
             var result = await controller.Edit(1, animal);
@@ -84,9 +110,21 @@ namespace TestProject1
         {
             // Arrange
             var data = new List<Animals>
-        {
-            new Animals { Id = 1, Name = "Lion", Species = "Panthera leo", Size = CustomSize.Medium, DietaryClass = DietaryClass.Carnivore, ActivityPattern = ActivityPattern.Diurnal, EnclosureId = 1, SpaceRequirement = 500, SecurityRequirement = SecurityLevel.High }
-        };
+            {
+                new Animals
+                {
+                    Id = 1,
+                    Name = "Lion",
+                    Species = "Panthera leo",
+                    Size = CustomSize.Medium,
+                    DietaryClass = DietaryClass.Carnivore,
+                    ActivityPattern = ActivityPattern.Diurnal,
+                    EnclosureId = 1,
+                    SpaceRequirement = 500,
+                    SecurityRequirement = SecurityLevel.High,
+                    Prey = "Deer"
+                }
+            };
             var context = GetDbContext(data);
             var controller = new AnimalsController(context);
 
@@ -99,5 +137,4 @@ namespace TestProject1
             Assert.Empty(context.Animals);
         }
     }
-
 }

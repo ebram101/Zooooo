@@ -5,30 +5,19 @@ using Microsoft.EntityFrameworkCore;
 using Zoo.Controllers;
 using Zoo.Data;
 using Zoo.Models;
+using Zoo.Enums;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace TestProject1
 {
-
     public class EnclosuresControllerTests
     {
-        private Mock<DbSet<Enclosure>> GetMockDbSet(List<Enclosure> data)
-        {
-            var queryableData = data.AsQueryable();
-            var mockDbSet = new Mock<DbSet<Enclosure>>();
-            mockDbSet.As<IQueryable<Enclosure>>().Setup(m => m.Provider).Returns(queryableData.Provider);
-            mockDbSet.As<IQueryable<Enclosure>>().Setup(m => m.Expression).Returns(queryableData.Expression);
-            mockDbSet.As<IQueryable<Enclosure>>().Setup(m => m.ElementType).Returns(queryableData.ElementType);
-            mockDbSet.As<IQueryable<Enclosure>>().Setup(m => m.GetEnumerator()).Returns(queryableData.GetEnumerator());
-            return mockDbSet;
-        }
-
         private ZooContext GetDbContext(List<Enclosure> data)
         {
             var options = new DbContextOptionsBuilder<ZooContext>()
-                .UseInMemoryDatabase(databaseName: "TestDatabase")
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Ensure a unique database for each test
                 .Options;
             var context = new ZooContext(options);
             context.Enclosure.AddRange(data);
@@ -40,12 +29,18 @@ namespace TestProject1
         public async Task Create_ReturnsARedirectAndAddsEnclosure_WhenModelStateIsValid()
         {
             // Arrange
-            var mockContext = new Mock<ZooContext>();
-            var enclosures = new List<Enclosure>();
-            mockContext.Setup(m => m.Enclosure).Returns(GetMockDbSet(enclosures).Object);
-            var controller = new EnclosuresController(mockContext.Object);
+            var context = GetDbContext(new List<Enclosure>());
+            var controller = new EnclosuresController(context);
 
-            var enclosure = new Enclosure { Id = 1, Name = "Savannah", Climate = Climate.Warm, HabitatType = HabitatType.Open, SecurityLevel = SecurityLevel.Medium, Size = 1000 };
+            var enclosure = new Enclosure
+            {
+                Id = 1,
+                Name = "Savannah",
+                Climate = Climate.Tropical,
+                HabitatType = HabitatType.Grassland,
+                SecurityLevel = SecurityLevel.Medium,
+                Size = 1000
+            };
 
             // Act
             var result = await controller.Create(enclosure);
@@ -53,8 +48,7 @@ namespace TestProject1
             // Assert
             var redirectToActionResult = Assert.IsType<RedirectToActionResult>(result);
             Assert.Equal("Index", redirectToActionResult.ActionName);
-            mockContext.Verify(m => m.Add(It.IsAny<Enclosure>()), Times.Once);
-            mockContext.Verify(m => m.SaveChangesAsync(default), Times.Once);
+            Assert.Equal(1, context.Enclosure.Count());
         }
 
         [Fact]
@@ -62,13 +56,32 @@ namespace TestProject1
         {
             // Arrange
             var data = new List<Enclosure>
-        {
-            new Enclosure { Id = 1, Name = "Savannah", Climate = Climate.Warm, HabitatType = HabitatType.Open, SecurityLevel = SecurityLevel.Medium, Size = 1000 }
-        };
+            {
+                new Enclosure
+                {
+                    Id = 1,
+                    Name = "Savannah",
+                    Climate = Climate.Tropical,
+                    HabitatType = HabitatType.Grassland,
+                    SecurityLevel = SecurityLevel.Medium,
+                    Size = 1000
+                }
+            };
             var context = GetDbContext(data);
             var controller = new EnclosuresController(context);
 
-            var enclosure = new Enclosure { Id = 1, Name = "Rainforest", Climate = Climate.Humid, HabitatType = HabitatType.Forested, SecurityLevel = SecurityLevel.High, Size = 1500 };
+            var enclosure = new Enclosure
+            {
+                Id = 1,
+                Name = "Rainforest",
+                Climate = Climate.Tropical,
+                HabitatType = HabitatType.Forest,
+                SecurityLevel = SecurityLevel.High,
+                Size = 1500
+            };
+
+            // Detach the original entity to avoid tracking conflicts
+            context.Entry(data.First()).State = EntityState.Detached;
 
             // Act
             var result = await controller.Edit(1, enclosure);
@@ -85,9 +98,17 @@ namespace TestProject1
         {
             // Arrange
             var data = new List<Enclosure>
-        {
-            new Enclosure { Id = 1, Name = "Savannah", Climate = Climate.Warm, HabitatType = HabitatType.Open, SecurityLevel = SecurityLevel.Medium, Size = 1000 }
-        };
+            {
+                new Enclosure
+                {
+                    Id = 1,
+                    Name = "Savannah",
+                    Climate = Climate.Tropical,
+                    HabitatType = HabitatType.Grassland,
+                    SecurityLevel = SecurityLevel.Medium,
+                    Size = 1000
+                }
+            };
             var context = GetDbContext(data);
             var controller = new EnclosuresController(context);
 
@@ -100,5 +121,4 @@ namespace TestProject1
             Assert.Empty(context.Enclosure);
         }
     }
-
 }
