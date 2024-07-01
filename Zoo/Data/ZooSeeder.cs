@@ -1,47 +1,100 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Bogus;
-using System.Collections.Generic;
+﻿using Bogus;
+using Zoo.Data;
 using Zoo.Enums;
 using Zoo.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Microsoft.EntityFrameworkCore;
 
 namespace Zoo.Data
 {
-    public static class SeedData
+    // Seeder class to seed the database with data
+    public class ZooSeeder
     {
-        public static void Seed(ModelBuilder modelBuilder)
+        private readonly ZooContext _context;
+
+        // Reference to the dbcontext
+        public ZooSeeder(ZooContext context)
         {
-            var categories = new List<Category>
+            _context = context;
+        }
+
+        public void DataSeeder()
+        {
+            // Create the database if it doesn't exist
+            _context.Database.EnsureCreated();
+
+            if (!_context.Animals.Any())
             {
-                new Category { Id = 1, Name = "Mammals" },
-                new Category { Id = 2, Name = "Reptiles" }
-            };
+                try
+                {
+                    // Create a list of categories
+                    var categoryNames = new[] { "Mammals", "Birds", "Reptiles", "Fish", "Amphibians", "Insects", "Arachnids" };
+                    var categories = categoryNames.Select(name => new Category { Name = name }).ToList();
 
-            modelBuilder.Entity<Category>().HasData(categories);
+                    // Add the categories to the database
+                    _context.Category.AddRange(categories);
+                    _context.SaveChanges();
 
-            var enclosures = new List<Enclosure>
-            {
-                new Enclosure { Id = 1, Name = "Savannah Habitat", Climate = Climate.Tropical, HabitatType = HabitatType.Grassland, SecurityLevel = SecurityLevel.Medium, Size = 1000.0 },
-                new Enclosure { Id = 2, Name = "Desert Habitat", Climate = Climate.Arid, HabitatType = HabitatType.Desert, SecurityLevel = SecurityLevel.High, Size = 500.0 }
-            };
+                    // Create a list of enclosures
+                    var enclosureFaker = new Faker<Enclosure>()
+                        .RuleFor(e => e.Name, f => f.Lorem.Word())
+                        .RuleFor(e => e.Climate, f => f.PickRandom<Climate>())
+                        .RuleFor(e => e.HabitatType, f => f.PickRandom<HabitatType>())
+                        .RuleFor(e => e.SecurityLevel, f => f.PickRandom<SecurityLevel>())
+                        .RuleFor(e => e.Size, f => f.Random.Double(20, 200));
 
-            modelBuilder.Entity<Enclosure>().HasData(enclosures);
+                    // Generate the enclosures
+                    var enclosures = enclosureFaker.Generate(5);
+                    _context.Enclosure.AddRange(enclosures);
+                    _context.SaveChanges();
 
-            var faker = new Faker<Animals>()
-                .RuleFor(a => a.Id, f => f.IndexFaker + 1)
-                .RuleFor(a => a.Name, f => f.Name.FirstName())
-                .RuleFor(a => a.Species, f => f.Random.Word())
-                .RuleFor(a => a.CategoryId, f => f.PickRandom(categories).Id)
-                .RuleFor(a => a.Size, f => f.PickRandom<CustomSize>())
-                .RuleFor(a => a.DietaryClass, f => f.PickRandom<DietaryClass>())
-                .RuleFor(a => a.ActivityPattern, f => f.PickRandom<ActivityPattern>())
-                .RuleFor(a => a.Prey, f => f.Random.Word())
-                .RuleFor(a => a.EnclosureId, f => f.PickRandom(enclosures).Id)
-                .RuleFor(a => a.SpaceRequirement, f => f.Random.Double(50, 200))
-                .RuleFor(a => a.SecurityRequirement, f => f.PickRandom<SecurityLevel>());
+                    // Create a list of animals
+                    var animalFaker = new Faker<Animals>()
+                        .RuleFor(a => a.Name, f => f.Name.FirstName())
+                        .RuleFor(a => a.Species, f => f.Lorem.Word())
+                        .RuleFor(a => a.Size, f => f.PickRandom<CustomSize>())
+                        .RuleFor(a => a.DietaryClass, f => f.PickRandom<DietaryClass>())
+                        .RuleFor(a => a.ActivityPattern, f => f.PickRandom<ActivityPattern>())
+                        .RuleFor(a => a.CategoryId, f => f.PickRandom(categories).Id)
+                        .RuleFor(a => a.EnclosureId, f => f.PickRandom(enclosures).Id)
+                        .RuleFor(a => a.SpaceRequirement, f => f.Random.Double(1, 20))
+                        .RuleFor(a => a.SecurityRequirement, f => f.PickRandom<SecurityLevel>());
 
-            var animals = faker.Generate(10); // Generate 10 random animals
+                    var animals = animalFaker.Generate(20);
+                    _context.Animals.AddRange(animals);
+                    _context.SaveChanges();
 
-            modelBuilder.Entity<Animals>().HasData(animals);
+                    // Assign a random prey to each animal
+                    var random = new Random();
+                    foreach (var animal in animals)
+                    {
+                        var potentialPrey = animals.Where(a => a.Id != animal.Id).ToList();
+                        if (potentialPrey.Any())
+                        {
+                            int randomIndex = random.Next(potentialPrey.Count);
+                            animal.Prey = potentialPrey[randomIndex].Name;
+                        }
+                    }
+
+                    // Update the Animals
+                    _context.Animals.UpdateRange(animals);
+                    _context.SaveChanges();
+                }
+                catch (DbUpdateException ex)
+                {
+                    Console.WriteLine("An error occurred while updating the database: " + ex.Message);
+                    if (ex.InnerException != null)
+                    {
+                        Console.WriteLine("Inner exception: " + ex.InnerException.Message);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("An error occurred: " + ex.Message);
+                }
+            }
         }
     }
 }

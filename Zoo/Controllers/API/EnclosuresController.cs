@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Zoo.Data;
-using Zoo.Models;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Zoo.Data;
+using Zoo.Models;
 
 namespace Zoo.Controllers.API
 {
@@ -21,63 +23,27 @@ namespace Zoo.Controllers.API
 
         // GET: api/Enclosures
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<EnclosureDTO>>> GetEnclosures()
+        public async Task<ActionResult<IEnumerable<Enclosure>>> GetEnclosure()
         {
-            var enclosures = await _context.Enclosure
-                .Include(e => e.Animals)
-                .Select(e => new EnclosureDTO
-                {
-                    Id = e.Id,
-                    Name = e.Name,
-                    Climate = e.Climate,
-                    HabitatType = e.HabitatType,
-                    SecurityLevel = e.SecurityLevel,
-                    Size = e.Size,
-                    Animals = e.Animals.Select(a => new ForeignAnimalDTO
-                    {
-                        Id = a.Id,
-                        Name = a.Name,
-                        Size = a.Size
-                    }).ToList()
-                })
-                .ToListAsync();
-
-            return Ok(enclosures);
+            return await _context.Enclosure.ToListAsync();
         }
 
         // GET: api/Enclosures/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<EnclosureDTO>> GetEnclosure(int id)
+        public async Task<ActionResult<Enclosure>> GetEnclosure(int id)
         {
-            var enclosure = await _context.Enclosure
-                .Include(e => e.Animals)
-                .Where(e => e.Id == id)
-                .Select(e => new EnclosureDTO
-                {
-                    Id = e.Id,
-                    Name = e.Name,
-                    Climate = e.Climate,
-                    HabitatType = e.HabitatType,
-                    SecurityLevel = e.SecurityLevel,
-                    Size = e.Size,
-                    Animals = e.Animals.Select(a => new ForeignAnimalDTO
-                    {
-                        Id = a.Id,
-                        Name = a.Name,
-                        Size = a.Size
-                    }).ToList()
-                })
-                .FirstOrDefaultAsync();
+            var enclosure = await _context.Enclosure.FindAsync(id);
 
             if (enclosure == null)
             {
                 return NotFound();
             }
 
-            return Ok(enclosure);
+            return enclosure;
         }
 
         // PUT: api/Enclosures/5
+        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
         public async Task<IActionResult> PutEnclosure(int id, Enclosure enclosure)
         {
@@ -108,6 +74,7 @@ namespace Zoo.Controllers.API
         }
 
         // POST: api/Enclosures
+        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
         public async Task<ActionResult<Enclosure>> PostEnclosure(Enclosure enclosure)
         {
