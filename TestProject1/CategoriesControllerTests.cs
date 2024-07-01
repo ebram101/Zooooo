@@ -13,21 +13,10 @@ namespace TestProject1
 {
     public class CategoriesControllerTests
     {
-        private Mock<DbSet<Category>> GetMockDbSet(List<Category> data)
-        {
-            var queryableData = data.AsQueryable();
-            var mockDbSet = new Mock<DbSet<Category>>();
-            mockDbSet.As<IQueryable<Category>>().Setup(m => m.Provider).Returns(queryableData.Provider);
-            mockDbSet.As<IQueryable<Category>>().Setup(m => m.Expression).Returns(queryableData.Expression);
-            mockDbSet.As<IQueryable<Category>>().Setup(m => m.ElementType).Returns(queryableData.ElementType);
-            mockDbSet.As<IQueryable<Category>>().Setup(m => m.GetEnumerator()).Returns(queryableData.GetEnumerator());
-            return mockDbSet;
-        }
-
         private ZooContext GetDbContext(List<Category> data)
         {
             var options = new DbContextOptionsBuilder<ZooContext>()
-                .UseInMemoryDatabase(databaseName: "TestDatabase")
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Ensure a unique database for each test
                 .Options;
             var context = new ZooContext(options);
             context.Category.AddRange(data);
@@ -39,10 +28,8 @@ namespace TestProject1
         public async Task Create_ReturnsARedirectAndAddsCategory_WhenModelStateIsValid()
         {
             // Arrange
-            var mockContext = new Mock<ZooContext>();
-            var categories = new List<Category>();
-            mockContext.Setup(m => m.Category).Returns(GetMockDbSet(categories).Object);
-            var controller = new CategoriesController(mockContext.Object);
+            var context = GetDbContext(new List<Category>());
+            var controller = new CategoriesController(context);
 
             var category = new Category { Id = 1, Name = "Mammals" };
 
@@ -52,8 +39,7 @@ namespace TestProject1
             // Assert
             var redirectToActionResult = Assert.IsType<RedirectToActionResult>(result);
             Assert.Equal("Index", redirectToActionResult.ActionName);
-            mockContext.Verify(m => m.Add(It.IsAny<Category>()), Times.Once);
-            mockContext.Verify(m => m.SaveChangesAsync(default), Times.Once);
+            Assert.Equal(1, context.Category.Count());
         }
 
         [Fact]
@@ -61,13 +47,16 @@ namespace TestProject1
         {
             // Arrange
             var data = new List<Category>
-        {
-            new Category { Id = 1, Name = "Mammals" }
-        };
+            {
+                new Category { Id = 1, Name = "Mammals" }
+            };
             var context = GetDbContext(data);
             var controller = new CategoriesController(context);
 
             var category = new Category { Id = 1, Name = "Birds" };
+
+            // Detach the original entity to avoid tracking conflicts
+            context.Entry(data.First()).State = EntityState.Detached;
 
             // Act
             var result = await controller.Edit(1, category);
@@ -84,9 +73,9 @@ namespace TestProject1
         {
             // Arrange
             var data = new List<Category>
-        {
-            new Category { Id = 1, Name = "Mammals" }
-        };
+            {
+                new Category { Id = 1, Name = "Mammals" }
+            };
             var context = GetDbContext(data);
             var controller = new CategoriesController(context);
 
@@ -99,5 +88,4 @@ namespace TestProject1
             Assert.Empty(context.Category);
         }
     }
-
 }
