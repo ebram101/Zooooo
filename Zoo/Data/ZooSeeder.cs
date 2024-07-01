@@ -50,6 +50,10 @@ namespace Zoo.Data
                     _context.Enclosure.AddRange(enclosures);
                     _context.SaveChanges();
 
+                    // Verify that categories and enclosures are successfully added
+                    var allCategories = categories.Select(c => c.Id).ToList();
+                    var allEnclosures = enclosures.Select(c => c.Id).ToList();
+
                     // Create a list of animals
                     var animalFaker = new Faker<Animals>()
                         .RuleFor(a => a.Name, f => f.Name.FirstName())
@@ -57,8 +61,8 @@ namespace Zoo.Data
                         .RuleFor(a => a.Size, f => f.PickRandom<CustomSize>())
                         .RuleFor(a => a.DietaryClass, f => f.PickRandom<DietaryClass>())
                         .RuleFor(a => a.ActivityPattern, f => f.PickRandom<ActivityPattern>())
-                        .RuleFor(a => a.CategoryId, f => f.PickRandom(categories).Id)
-                        .RuleFor(a => a.EnclosureId, f => f.PickRandom(enclosures).Id)
+                        .RuleFor(a => a.CategoryId, f => f.PickRandom(allCategories))
+                        .RuleFor(a => a.EnclosureId, f => f.PickRandom(allEnclosures))
                         .RuleFor(a => a.SpaceRequirement, f => f.Random.Double(1, 20))
                         .RuleFor(a => a.SecurityRequirement, f => f.PickRandom<SecurityLevel>());
 
